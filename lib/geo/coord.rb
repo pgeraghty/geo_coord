@@ -609,8 +609,8 @@ module Geo
     LNG_RANGE_ERROR = 'Expected longitude to be between -180 and 180, %p received'.freeze
 
     def _init(lat, lng)
-      lat = BigDecimal(lat.to_f, 10)
-      lng = BigDecimal(lng.to_f, 10)
+      lat = BigDecimal(lat, 10).round(7)
+      lng = BigDecimal(lng, 10).round(7)
 
       raise ArgumentError, LAT_RANGE_ERROR % lat unless (-90..90).cover?(lat)
       raise ArgumentError, LNG_RANGE_ERROR % lng unless (-180..180).cover?(lng)
@@ -627,13 +627,13 @@ module Geo
     def _init_dms(opts) # rubocop:disable Metrics/AbcSize
       lat = (
         opts[:latd].to_i +
-        opts[:latm].to_i / 60.0 +
-        opts[:lats].to_i / 3600.0
+        BigDecimal(opts[:latm].to_i) / 60.0 +
+        BigDecimal(opts[:lats]) / 3600.0
       ) * guess_sign(opts[:lath], LATH)
       lng = (
         opts[:lngd].to_i +
-        opts[:lngm].to_i / 60.0 +
-        opts[:lngs].to_i / 3600.0
+        BigDecimal(opts[:lngm].to_i) / 60.0 +
+        BigDecimal(opts[:lngs]) / 3600.0
       ) * guess_sign(opts[:lngh], LNGH)
       _init(lat, lng)
     end
