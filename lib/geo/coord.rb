@@ -179,6 +179,25 @@ module Geo
 
       # @private
       DMS_PATTERN = /^\s*#{DMS_LAT_P}\s*[,; ]\s*#{DMS_LNG_P}\s*$/x # :nodoc:
+      
+      
+      # Handle DM.m format co-ordinates
+       # @private
+      DMM_LATD_P = "(?<latd>#{INT_PATTERN})#{DEG_PATTERN}".freeze # :nodoc:
+      # @private
+      DMM_LATM_P = "(?<latm>#{UFLOAT_PATTERN})#{MIN_PATTERN}".freeze # :nodoc:
+      # @private
+      DMM_LAT_P = "#{DMM_LATD_P}\\s*#{DMM_LATM_P}\\s*(?<lath>[NS])".freeze # :nodoc:
+
+      # @private
+      DMM_LNGD_P = "(?<lngd>#{INT_PATTERN})#{DEG_PATTERN}".freeze # :nodoc:
+      # @private
+      DMM_LNGM_P = "(?<lngm>#{UFLOAT_PATTERN})#{MIN_PATTERN}".freeze # :nodoc:
+      # @private
+      DMM_LNG_P = "#{DMM_LNGD_P}\\s*#{DMM_LNGM_P}\\s*(?<lngh>[EW])".freeze # :nodoc:
+
+      # @private
+      DMM_PATTERN = /^\s*#{DMM_LAT_P}\s*[,; ]\s*#{DMM_LNG_P}\s*$/x # :nodoc:
 
       # Parses Coord from string containing float latitude and longitude.
       # Understands several types of separators/spaces between values.
@@ -216,6 +235,35 @@ module Geo
         end
         raise ArgumentError, "Can't parse #{str} as degrees-minutes-seconds"
       end
+      
+      # Parses Coord from string containing latitude and longitude in
+      # degrees-decimal minutes-hemisphere format. Understands several
+      # types of separators, degree, minute, second signs, as well as
+      # explicit hemisphere and no-hemisphere (signed degrees) formats.
+      #
+      #    Geo::Coord.parse_dmm('50°0.26664′N 36°13.88334′E')
+      #    # => #<Geo::Coord 50°0'16"N 36°13'53"E>
+      #
+      # If parse_dms is not wise enough to understand your data, consider
+      # using ::strpcoord.
+      #
+      def parse_dmm(str)
+        str.match(DMM_PATTERN) do |m|
+          # convert remainder to seconds
+          lats = m[:latm].to_d.modulo(1)*60
+          lngs = m[:lngm].to_d.modulo(1)*60
+          
+          # round minutes down
+          latm = m[:latm].to_i
+          lngm = m[:lngm].to_i
+          
+          return new(
+            latd: m[:latd], latm: latm, lats: lats, lath: m[:lath],
+            lngd: m[:lngd], lngm: lngm, lngs: lngs, lngh: m[:lngh]
+          )
+        end
+        raise ArgumentError, "Can't parse #{str} as degrees-decimal minutes (DM.m)"
+      end
 
       # Tries its best to parse Coord from string containing it (in any
       # known form).
@@ -230,7 +278,7 @@ module Geo
       # even ::strpcoord.
       def parse(str)
         # rubocop:disable Style/RescueModifier
-        parse_ll(str) rescue (parse_dms(str) rescue nil)
+        parse_ll(str) rescue parse_dms(str) rescue parse_dmm(str) rescue nil
         # rubocop:enable Style/RescueModifier
       end
 
