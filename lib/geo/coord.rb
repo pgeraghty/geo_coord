@@ -166,7 +166,7 @@ module Geo
       # @private
       DMS_LATS_P = "(?<lats>#{UFLOAT_PATTERN})#{SEC_PATTERN}".freeze # :nodoc:
       # @private
-      DMS_LAT_P = "#{DMS_LATD_P}\\s*#{DMS_LATM_P}\\s*#{DMS_LATS_P}\\s*(?<lath>[NS])".freeze # :nodoc:
+      DMS_LAT_P = "(?<lath>[NS])?\\s*#{DMS_LATD_P}\\s*#{DMS_LATM_P}\\s*#{DMS_LATS_P}\\s*(?<lath>[NS])?".freeze # :nodoc:
 
       # @private
       DMS_LNGD_P = "(?<lngd>#{INT_PATTERN})#{DEG_PATTERN}".freeze # :nodoc:
@@ -175,7 +175,7 @@ module Geo
       # @private
       DMS_LNGS_P = "(?<lngs>#{UFLOAT_PATTERN})#{SEC_PATTERN}".freeze # :nodoc:
       # @private
-      DMS_LNG_P = "#{DMS_LNGD_P}\\s*#{DMS_LNGM_P}\\s*#{DMS_LNGS_P}\\s*(?<lngh>[EW])".freeze # :nodoc:
+      DMS_LNG_P = "(?<lngh>[EW])?\\s*#{DMS_LNGD_P}\\s*#{DMS_LNGM_P}\\s*#{DMS_LNGS_P}\\s*(?<lngh>[EW])?".freeze # :nodoc:
 
       # @private
       DMS_PATTERN = /^\s*#{DMS_LAT_P}\s*[,; ]\s*#{DMS_LNG_P}\s*$/x # :nodoc:
@@ -187,14 +187,14 @@ module Geo
       # @private
       DMM_LATM_P = "(?<latm>#{UFLOAT_PATTERN})#{MIN_PATTERN}".freeze # :nodoc:
       # @private
-      DMM_LAT_P = "#{DMM_LATD_P}\\s*#{DMM_LATM_P}\\s*(?<lath>[NS])".freeze # :nodoc:
+      DMM_LAT_P = "(?<lath>[NS])?\\s*#{DMM_LATD_P}\\s*#{DMM_LATM_P}\\s*(?<lath>[NS])?".freeze # :nodoc:
 
       # @private
       DMM_LNGD_P = "(?<lngd>#{INT_PATTERN})#{DEG_PATTERN}".freeze # :nodoc:
       # @private
       DMM_LNGM_P = "(?<lngm>#{UFLOAT_PATTERN})#{MIN_PATTERN}".freeze # :nodoc:
       # @private
-      DMM_LNG_P = "#{DMM_LNGD_P}\\s*#{DMM_LNGM_P}\\s*(?<lngh>[EW])".freeze # :nodoc:
+      DMM_LNG_P = "(?<lngh>[EW])?\\s*#{DMM_LNGD_P}\\s*#{DMM_LNGM_P}\\s*(?<lngh>[EW])?".freeze # :nodoc:
 
       # @private
       DMM_PATTERN = /^\s*#{DMM_LAT_P}\s*[,; ]\s*#{DMM_LNG_P}\s*$/x # :nodoc:
