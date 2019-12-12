@@ -150,11 +150,11 @@ module Geo
       UFLOAT_PATTERN = '\d+(?:\.\d*)?'.freeze # :nodoc:
 
       # @private
-      DEG_PATTERN = '[ °d]'.freeze # :nodoc:
+      DEG_PATTERN = '[ °d:]'.freeze # :nodoc:
       # @private
-      MIN_PATTERN = "['′’m]".freeze # :nodoc:
+      MIN_PATTERN = "['′’m:]".freeze # :nodoc:
       # @private
-      SEC_PATTERN = '["″s]'.freeze # :nodoc:
+      SEC_PATTERN = '["″s]?'.freeze # :nodoc:
 
       # @private
       LL_PATTERN = /^(#{FLOAT_PATTERN})\s*[,; ]\s*(#{FLOAT_PATTERN})$/ # :nodoc:
