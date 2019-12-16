@@ -25,13 +25,11 @@ describe Geo::Coord do
       c.lat.should == 50.004444
       c.lng.should == 36.231389
 
-      c = Geo::Coord.new(lat: 50.004444)
-      c.lat.should == 50.004444
-      c.lng.should == 0
+      lambda { Geo::Coord.new(lat: 50.004444) }.
+        should raise_exception ArgumentError #, Geo::Coord::LNG_RANGE_ERROR
 
-      c = Geo::Coord.new(lng: 36.231389)
-      c.lat.should == 0
-      c.lng.should == 36.231389
+      lambda { Geo::Coord.new(lng: 36.231389) }.
+        should raise_exception ArgumentError #, Geo::Coord::LAT_RANGE_ERROR
     end
 
     it 'is initialized by d,m,s,h sets' do
@@ -182,16 +180,16 @@ describe Geo::Coord do
   context 'simple conversions' do
     it 'is inspectable' do
       c = Geo::Coord.new(50.004444, 36.231389)
-      c.inspect.should == %{#<Geo::Coord 50°0'16"N 36°13'53"E>}
+      c.inspect.should == %{#<Geo::Coord 50°0'15.9984"N 36°13'53.0004"E>}
     end
 
     it 'is convertible to string' do
       c = Geo::Coord.new(50.004444, 36.231389)
-      c.to_s.should == %{50°0'16"N 36°13'53"E}
+      c.to_s.should == %{50°0'15.9984"N 36°13'53.0004"E}
       c.to_s(dms: false).should == '50.004444,36.231389'
 
       c = Geo::Coord.new(-50.004444, -36.231389)
-      c.to_s.should == %{50°0'16"S 36°13'53"W}
+      c.to_s.should == %{50°0'15.9984"S 36°13'53.0004"W}
       c.to_s(dms: false).should == '-50.004444,-36.231389'
     end
 
@@ -269,7 +267,7 @@ describe Geo::Coord do
       pos.strfcoord('%latd %foo').should == '50 %foo'
     end
 
-    it 'understands everyting at once' do
+    it 'understands everything at once' do
       pos = Geo::Coord.new(50.004444, 36.231389)
       pos.strfcoord(%q{%latd %latm' %lats" %lath, %lngd %lngm' %lngs" %lngh}).should ==
         %q{50 0' 16" N, 36 13' 53" E}
@@ -284,6 +282,16 @@ describe Geo::Coord do
       pos.strfcoord('%latd %latm %.03lats, %lngd %lngm %.03lngs').should ==
         '0 1 59.999, 91 19 59.999'
     end
+
+    it 'strips insignificant zeros when requested' do
+      pos = Geo::Coord.new(0.033333, 91.333333)
+      pos.strfcoord('%latd %latm %lats, %lngd %lngm %lngs', strip_insigificant_zeros: true).should ==
+      '0 2 0, 91 20 0'
+      pos.strfcoord('%latd %latm %.02lats, %lngd %lngm %.02lngs', strip_insigificant_zeros: true).should ==
+      '0 2 0, 91 20 0'
+      pos.strfcoord('%latd %latm %.03lats, %lngd %lngm %.03lngs', strip_insigificant_zeros: true).should ==
+      '0 1 59.999, 91 19 59.999'
+    end
   end
 
   context :strpcoord do
@@ -297,13 +305,13 @@ describe Geo::Coord do
         Geo::Coord.new(latd: 50, latm: 0, lats: 16, lngd: 36, lngm: 13, lngs: 53)
     end
 
-    it 'provides defaults' do
-      Geo::Coord.strpcoord('50.004444', '%lat').should ==
-        Geo::Coord.new(lat: 50.004444, lng: 0)
-
-      Geo::Coord.strpcoord('36.231389', '%lng').should ==
-        Geo::Coord.new(lng: 36.231389)
-    end
+    #it 'provides defaults' do
+    #  Geo::Coord.strpcoord('50.004444', '%lat').should ==
+    #    Geo::Coord.new(lat: 50.004444, lng: 0)
+    #
+    #  Geo::Coord.strpcoord('36.231389', '%lng').should ==
+    #    Geo::Coord.new(lng: 36.231389)
+    #end
 
     it 'raises on wrong format' do
       lambda{Geo::Coord.strpcoord('50.004444, 36.231389', '%lat; %lng')}.should \

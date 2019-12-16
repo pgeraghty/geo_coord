@@ -152,12 +152,12 @@ module Geo
       # @private
       DEG_PATTERN = '[ °d:]'.freeze # :nodoc:
       # @private
-      MIN_PATTERN = "['′’m:]".freeze # :nodoc:
+      MIN_PATTERN = "['′’m:]?".freeze # :nodoc:
       # @private
       SEC_PATTERN = '["″s]?'.freeze # :nodoc:
 
       # @private
-      LL_PATTERN = /^(#{FLOAT_PATTERN})\s*[,; ]\s*(#{FLOAT_PATTERN})$/ # :nodoc:
+      LL_PATTERN = /^\s*(?<lath>[NS])?\s*(?<lat>#{FLOAT_PATTERN})\s*(?<lath>[NS])?\s*[,; ]\s*(?<lngh>[EW])?\s*(?<lng>#{FLOAT_PATTERN})\s*(?<lngh>[EW])?\s*$/ # :nodoc:
 
       # @private
       DMS_LATD_P = "(?<latd>#{INT_PATTERN})#{DEG_PATTERN}".freeze # :nodoc:
@@ -210,7 +210,8 @@ module Geo
       #
       def parse_ll(str)
         str.match(LL_PATTERN) do |m|
-          return new(m[1].to_f, m[2].to_f)
+          # in Ruby > 2.4, can use m.named_captures, but need to symbolize
+          return new(m[:lat], m[:lng], Hash[m.names.map { |x| [x.to_sym, m[x]]}])
         end
         raise ArgumentError, "Can't parse #{str} as lat, lng"
       end
@@ -252,11 +253,25 @@ module Geo
           # convert remainder to seconds
           lats = m[:latm].to_d.modulo(1)*60
           lngs = m[:lngm].to_d.modulo(1)*60
-          
+
           # round minutes down
           latm = m[:latm].to_i
           lngm = m[:lngm].to_i
-          
+
+          lat_is_negative = m[:latd].to_f < 0
+          lng_is_negative = m[:lngd].to_f < 0
+
+          # fix negatives
+          if lat_is_negative
+            latm = latm * -1
+            lats = lats * -1
+          end
+
+          if lng_is_negative
+            lngm = lngm * -1
+            lngs = lngs * -1
+          end
+
           return new(
             latd: m[:latd], latm: latm, lats: lats, lath: m[:lath],
             lngd: m[:lngd], lngm: lngm, lngs: lngs, lngh: m[:lngh]
@@ -278,7 +293,7 @@ module Geo
       # even ::strpcoord.
       def parse(str)
         # rubocop:disable Style/RescueModifier
-        parse_ll(str) rescue parse_dms(str) rescue parse_dmm(str) rescue nil
+        parse_ll(str) rescue parse_dmm(str) rescue parse_dms(str) rescue nil
         # rubocop:enable Style/RescueModifier
       end
 
@@ -372,9 +387,9 @@ module Geo
 
       case
       when lat && lng
-        _init(lat, lng)
+        _init(lat, lng, opts)
       when opts.key?(:lat) || opts.key?(:lng)
-        _init(opts[:lat], opts[:lng])
+        _init(opts[:lat], opts[:lng], opts)
       when opts.key?(:latd) || opts.key?(:lngd)
         _init_dms(opts)
       else
@@ -426,7 +441,7 @@ module Geo
 
     # Returns longitude seconds (unsigned float).
     def lngs
-      (lng.abs * 3600) % 60
+      (BigDecimal(lng.abs) * 3600) % 60
     end
 
     # Returns longitude hemisphere (upcase letter 'E' or 'W').
@@ -489,12 +504,12 @@ module Geo
 
     alias λ la
 
-    # Returns a string represent coordinates object.
+    # Returns a string representing coordinates object.
     #
     #    g.inspect  # => "#<Geo::Coord 50.004444,36.231389>"
     #
     def inspect
-      strfcoord(%{#<#{self.class.name} %latd°%latm'%lats"%lath %lngd°%lngm'%lngs"%lngh>})
+      strfcoord(%{#<#{self.class.name} %latd°%latm'%.05lats"%lath %lngd°%lngm'%.05lngs"%lngh>}, strip_insigificant_zeros: true)
     end
 
     # Returns a string representing coordinates.
@@ -503,8 +518,8 @@ module Geo
     #    g.to_s(dms: false)  # => "50.004444,36.231389"
     #
     def to_s(dms: true)
-      format = dms ? %{%latd°%latm'%lats"%lath %lngd°%lngm'%lngs"%lngh} : '%lat,%lng'
-      strfcoord(format)
+      format = dms ? %{%latd°%latm'%.05lats"%lath %lngd°%lngm'%.05lngs"%lngh} : '%.08lat,%.08lng'
+      strfcoord(format, strip_insigificant_zeros: true)
     end
 
     # Returns a two-element array of latitude and longitude.
@@ -600,7 +615,7 @@ module Geo
     #    pos.strfcoord('%latd %latm %.05lats') # => "0 1 59.99880"
     #    pos.strfcoord('%latd %latm %lats')  # => "0 2 0"
     #
-    def strfcoord(formatstr)
+    def strfcoord(formatstr, strip_insigificant_zeros: false)
       h = full_hash
 
       DIRECTIVES.reduce(formatstr) do |memo, (from, to)|
@@ -609,7 +624,12 @@ module Geo
           res = to % h
           res, carrymin = guard_seconds(to, res)
           h[carrymin] += 1 if carrymin
-          res
+
+          if strip_insigificant_zeros && res.include?('.')
+            res.sub(/\.?0+$/, '')
+          else
+            res
+          end
         end
       end
     end
@@ -656,9 +676,9 @@ module Geo
     LAT_RANGE_ERROR = 'Expected latitude to be between -90 and 90, %p received'.freeze
     LNG_RANGE_ERROR = 'Expected longitude to be between -180 and 180, %p received'.freeze
 
-    def _init(lat, lng)
-      lat = BigDecimal(lat.to_f, 10)
-      lng = BigDecimal(lng.to_f, 10)
+    def _init(lat, lng, **opts)
+      lat = BigDecimal(lat, 10) * guess_sign(opts[:lath], LATH) rescue nil
+      lng = BigDecimal(lng, 10) * guess_sign(opts[:lngh], LNGH) rescue nil
 
       raise ArgumentError, LAT_RANGE_ERROR % lat unless (-90..90).cover?(lat)
       raise ArgumentError, LNG_RANGE_ERROR % lng unless (-180..180).cover?(lng)
@@ -674,14 +694,14 @@ module Geo
 
     def _init_dms(opts) # rubocop:disable Metrics/AbcSize
       lat = (
-        opts[:latd].to_i +
-        opts[:latm].to_i / 60.0 +
-        opts[:lats].to_i / 3600.0
+        BigDecimal(opts[:latd] || 0, 10) +
+        BigDecimal(opts[:latm] || 0, 10) / 60 +
+        BigDecimal(opts[:lats] || 0, 10) / 3600
       ) * guess_sign(opts[:lath], LATH)
       lng = (
-        opts[:lngd].to_i +
-        opts[:lngm].to_i / 60.0 +
-        opts[:lngs].to_i / 3600.0
+        BigDecimal(opts[:lngd] || 0, 10) +
+        BigDecimal(opts[:lngm] || 0, 10) / 60 +
+        BigDecimal(opts[:lngs] || 0, 10) / 3600
       ) * guess_sign(opts[:lngh], LNGH)
       _init(lat, lng)
     end
