@@ -285,12 +285,12 @@ describe Geo::Coord do
 
     it 'strips insignificant zeros when requested' do
       pos = Geo::Coord.new(0.033333, 91.333333)
-      pos.strfcoord('%latd %latm %lats, %lngd %lngm %lngs', strip_insigificant_zeros: true).should ==
-      '0 2 0, 91 20 0'
-      pos.strfcoord('%latd %latm %.02lats, %lngd %lngm %.02lngs', strip_insigificant_zeros: true).should ==
-      '0 2 0, 91 20 0'
-      pos.strfcoord('%latd %latm %.03lats, %lngd %lngm %.03lngs', strip_insigificant_zeros: true).should ==
-      '0 1 59.999, 91 19 59.999'
+      pos.strfcoord('%latd %latm %lats, %lngd %lngm %lngs',
+                    strip_insignificant_zeros: true).should == '0 2 0, 91 20 0'
+      pos.strfcoord('%latd %latm %.02lats, %lngd %lngm %.02lngs',
+                    strip_insignificant_zeros: true).should == '0 2 0, 91 20 0'
+      pos.strfcoord('%latd %latm %.03lats, %lngd %lngm %.03lngs',
+                    strip_insignificant_zeros: true).should == '0 1 59.999, 91 19 59.999'
     end
   end
 
@@ -321,6 +321,46 @@ describe Geo::Coord do
     it 'ignores the rest' do
       Geo::Coord.strpcoord('50.004444, 36.231389 is somewhere in Kharkiv', '%lat, %lng').should ==
         Geo::Coord.new(lat: 50.004444, lng: 36.231389)
+    end
+
+    it 'generates D.d, DM.m & DMS string representations' do
+      pos = Geo::Coord.new(50.004444, 36.231389)
+
+      pos.dd.should eq '50.004444,36.231389'
+      pos.dmm.should eq "50°0.26664'N 36°13.88334'E"
+      pos.dms.should eq "50°0'15.9984\"N 36°13'53.0004\"E"
+
+      puts "\nDD:\n"
+      pos_dd_coords = [40.446195,-79.982195]
+      p pos_dd_coords
+      pos_dd = Geo::Coord.new *pos_dd_coords
+      puts pos_dd.to_s dms: false
+      puts pos_dd.to_s
+
+      puts "\nDMM:\n"
+      pos_dmm = Geo::Coord.parse_dmm dmm = "40° 26.7717, -79° 58.93172"
+      p dmm
+      puts pos_dmm.to_s dms: false
+      puts pos_dmm.to_s
+      pos_dmm.lat.should be_close(40.446195, 0.000001)
+      pos_dmm.lng.should be_close(-79.982195, 0.000001)
+
+      puts "\nDMM:\n"
+      pos_dmm2 = Geo::Coord.parse_dmm dmm2 = "-40° 26.7717, 79° 58.93172"
+      p dmm2
+      puts pos_dmm2.to_s dms: false
+      puts pos_dmm2.to_s
+      pos_dmm2.lat.should be_close(-40.446195, 0.000001)
+      pos_dmm2.lng.should be_close(79.982195, 0.000001)
+
+      puts "\nDMS:\n"
+      pos_dms = Geo::Coord.parse dms = "40°26′46″N 079°58′56″W"
+      p dms
+      puts pos_dms.to_s
+      puts pos_dms.to_s dms: false
+      puts pos_dms.dmm # 40°26.76667'N 79°58.93333'W
+      pos_dms.lat.should be_close(40.44611111, 0.000001)
+      pos_dms.lng.should be_close(-79.98222222, 0.000001)
     end
   end
 end

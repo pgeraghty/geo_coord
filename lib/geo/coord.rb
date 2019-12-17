@@ -251,8 +251,8 @@ module Geo
       def parse_dmm(str)
         str.match(DMM_PATTERN) do |m|
           # convert remainder to seconds
-          lats = m[:latm].to_d.modulo(1)*60
-          lngs = m[:lngm].to_d.modulo(1)*60
+          lats = BigDecimal(m[:latm]).modulo(1) * 60
+          lngs = BigDecimal(m[:lngm]).modulo(1) * 60
 
           # round minutes down
           latm = m[:latm].to_i
@@ -419,6 +419,11 @@ module Geo
       (lat.abs * 60).to_i % 60
     end
 
+    # Returns latitude minutes (unsigned float) for DM.m format
+    def latmm
+      BigDecimal(lat.abs) * 60 % 60
+    end
+
     # Returns latitude seconds (unsigned float).
     def lats
       (lat.abs * 3600) % 60
@@ -437,6 +442,11 @@ module Geo
     # Returns longitude minutes (unsigned integer).
     def lngm
       (lng.abs * 60).to_i % 60
+    end
+
+    # Returns longitude minutes (unsigned float) for DM.m format
+    def lngmm
+      BigDecimal(lng.abs) * 60 % 60
     end
 
     # Returns longitude seconds (unsigned float).
@@ -509,7 +519,7 @@ module Geo
     #    g.inspect  # => "#<Geo::Coord 50.004444,36.231389>"
     #
     def inspect
-      strfcoord(%{#<#{self.class.name} %latd°%latm'%.05lats"%lath %lngd°%lngm'%.05lngs"%lngh>}, strip_insigificant_zeros: true)
+      strfcoord(%{#<#{self.class.name} %latd°%latm'%.05lats"%lath %lngd°%lngm'%.05lngs"%lngh>}, strip_insignificant_zeros: true)
     end
 
     # Returns a string representing coordinates.
@@ -519,7 +529,19 @@ module Geo
     #
     def to_s(dms: true)
       format = dms ? %{%latd°%latm'%.05lats"%lath %lngd°%lngm'%.05lngs"%lngh} : '%.08lat,%.08lng'
-      strfcoord(format, strip_insigificant_zeros: true)
+      strfcoord(format, strip_insignificant_zeros: true)
+    end
+
+    def dd
+      strfcoord('%.08lat,%.08lng', strip_insignificant_zeros: true)
+    end
+
+    def dmm
+      strfcoord(%{%latd°%.05latmm'%lath %lngd°%.05lngmm'%lngh}, strip_insignificant_zeros: true)
+    end
+
+    def dms
+      strfcoord(%{%latd°%latm'%.05lats"%lath %lngd°%lngm'%.05lngs"%lngh}, strip_insignificant_zeros: true)
     end
 
     # Returns a two-element array of latitude and longitude.
@@ -559,6 +581,9 @@ module Geo
 
     # @private
     DIRECTIVES = { # :nodoc:
+      /%(#{FLOATUFLAGS})?latmm/ => proc { |m| "%<latmm>#{m[1] || '.0'}f" },
+      /%(#{FLOATUFLAGS})?lngmm/ => proc { |m| "%<lngmm>#{m[1] || '.0'}f" },
+
       /%(#{FLOATUFLAGS})?lats/ => proc { |m| "%<lats>#{m[1] || '.0'}f" },
       '%latm' => '%<latm>i',
       /%(#{INTFLAGS})?latds/ => proc { |m| "%<latds>#{m[1]}i" },
@@ -615,7 +640,7 @@ module Geo
     #    pos.strfcoord('%latd %latm %.05lats') # => "0 1 59.99880"
     #    pos.strfcoord('%latd %latm %lats')  # => "0 2 0"
     #
-    def strfcoord(formatstr, strip_insigificant_zeros: false)
+    def strfcoord(formatstr, strip_insignificant_zeros: false)
       h = full_hash
 
       DIRECTIVES.reduce(formatstr) do |memo, (from, to)|
@@ -625,7 +650,7 @@ module Geo
           res, carrymin = guard_seconds(to, res)
           h[carrymin] += 1 if carrymin
 
-          if strip_insigificant_zeros && res.include?('.')
+          if strip_insignificant_zeros && res.include?('.')
             res.sub(/\.?0+$/, '')
           else
             res
@@ -739,6 +764,7 @@ module Geo
       {
         latd: latd,
         latds: latds,
+        latmm: latmm,
         latm: latm,
         lats: lats,
         lath: lath,
@@ -746,6 +772,7 @@ module Geo
 
         lngd: lngd,
         lngds: lngds,
+        lngmm: lngmm,
         lngm: lngm,
         lngs: lngs,
         lngh: lngh,
